@@ -1,0 +1,73 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'simple-rss'
+require 'open-uri'
+require 'htmlentities'
+
+class RssFeed
+  attr_accessor :url, :type
+
+  @@html = HTMLEntities.new
+
+  def initialize(url, type=:html)
+    @url  = url
+    @type = type
+  end
+
+  def render filename
+    rss = SimpleRSS.parse open(@url)
+
+    File.open(filename, 'w') do |file|
+      file.puts "\\usemodule[rssfeed]"
+      file.puts "\\starttext"
+      file.puts (render_title rss.title, rss.description, rss.link)
+      rss.items.each {|item| file.puts (render_item item) }
+      file.puts "\\stoptitle"
+      file.puts "\\stoptext"
+    end
+
+    %x[source /opt/context-minimals/setuptex && context --batch #{filename}]
+
+  end
+
+  private
+
+  def to_context text
+    context = ""
+     IO.popen(["pandoc", "-f", @type.to_s, "-t",  "context"], mode="r+") do |file|
+      file.puts text
+      file.close_write
+      context = file.read
+    end
+    return context
+  end
+
+  def render_url link, text
+    %<\\useURL[link][#{link}][][{#{text}}]>
+  end
+
+  def render_title title, description, link
+    %<\\startasciimode
+      #{render_url link, "{\\ttx #{link}}"}
+      \\stopasciimode
+      \\setvariables
+          [rssfeed]
+          [title={#{title}},
+           description={#{description}},
+           link={\\from[link]}]
+    >
+  end
+
+  def render_item item
+    %<#{render_url item.link, "Read online"}
+      \\starttitle[title={#{@@html.decode item.title}}][link={\\from[link]}]
+        #{to_context (@@html.decode (item.content_encoded or item.description))}
+      \\stoptitle
+    >
+  end
+
+end
+
+feed = RssFeed.new('http://feeds.feedburner.com/codinghorror/')
+feed.render('coding-horror.tex')
