@@ -15,20 +15,28 @@ class RssFeed
     @type = type
   end
 
-  def render filename
+  def render filename # Assume filename has no extension
     rss = SimpleRSS.parse open(@url)
 
-    File.open(filename, 'w') do |file|
+    File.open("#{filename}.tex", 'w') do |file|
       file.puts "\\usemodule[rssfeed]"
       file.puts "\\starttext"
-      file.puts (render_title rss.title, rss.description, rss.link)
+      title       = rss.title       rescue nil
+      description = to_context( @@html.decode rss.description) rescue nil
+      link        = rss.link        rescue nil
+      file.puts(render_title title, description, link)
+      # TODO: Check pubdate and only add new items
       rss.items.each {|item| file.puts (render_item item) }
       file.puts "\\stoptitle"
       file.puts "\\stoptext"
     end
 
-    %x[source /opt/context-minimals/setuptex && context --batch #{filename}]
+    puts %x[source /opt/context-minimals/setuptex && context --batch #{filename}]
 
+  end
+
+  def email filename # Assume filename has no extension
+    %x[mutt -a #{filename}.pdf -- adityam_77@free.kindle.com < /dev/null]
   end
 
   private
@@ -69,5 +77,15 @@ class RssFeed
 
 end
 
-feed = RssFeed.new('http://feeds.feedburner.com/codinghorror/')
-feed.render('coding-horror.tex')
+FEEDS = [ {:name=>"coding-horror", :link=>"http://feeds.feedburner.com/codinghorror/", :type=>"html"},
+          {:name=>"endeavor", :link=>"http://feeds.feedburner.com/theendeavour", :type=>"html"},
+          #{:name=>"IEEE-TIT", :link=>"http://ieeexplore.ieee.org/rss/TOC18.XML", :type=>"markdown"},
+          #{:name=>"TeX-SE", :link=>"http://tex.stackexchange.com/feeds", :type=>"markdown"}, 
+          {:name=>"mansurovs", :link=>"http://feeds.feedburner.com/mansurovs", :type=>"html"},
+        ]
+
+FEEDS.each do |feed|
+    rssfeed = RssFeed.new feed[:link], feed[:type]
+    puts "Generating feed #{feed[:name]}"
+    rssfeed.render feed[:name]
+end
