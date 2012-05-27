@@ -187,7 +187,7 @@ def rss2kindle title, list
     renderer.stop
 
     if updated
-      puts "== Feeds updated =="
+      puts "== Feeds updated. compiling TeX file. =="
       renderer.compile
       puts ">> Error in ConTeXt run" unless $? 
       renderer.email "adityam_77@free.kindle.com" 
