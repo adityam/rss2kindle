@@ -1,5 +1,20 @@
 #!/usr/bin/env ruby
 
+BLOGS = [ {:name=>"coding-horror", :link=>"http://feeds.feedburner.com/codinghorror/", :type=>"html"},
+          {:name=>"endeavor", :link=>"http://feeds.feedburner.com/theendeavour", :type=>"html"},
+          # {:name=>"TeX", :link=>"http://texample.net/feeds/community/", :type=>"html"},
+          {:name=>"mansurovs", :link=>"http://feeds.feedburner.com/mansurovs", :type=>"html"},
+          {:name=>"devdutt", :link=>"http://feeds.feedburner.com/Devdutt", :type=>"html"},
+          {:name=>'random-determinism', :link=>"http://randomdeterminism.wordpress.com/feed/", :type=>"html"},
+          {:name=>"xkcd", :link=>"http://xkcd.com/atom.xml", :type=>:html},
+          {:name=>"fastcompany", :link=>"http://feeds.feedburner.com/fastcompany/headlines", :type=>"html"},
+        ]
+
+PAPERS = [ {:name=>"IEEE-TAC", :link=>"http://ieeexplore.ieee.org/rss/TOC9.XML", :type=>"markdown"},
+           {:name=>"Arxiv-IT", :link=>"http://export.arxiv.org/rss/cs.IT", :type=>"markdown"},
+           {:name=>"Arxiv-OC", :link=>"http://export.arxiv.org/rss/math.OC", :type=>"markdown"},
+         ]
+
 # SimpleRSS generates a lot of warnings related to UTF. So, we disable warnings
 $VERBOSE = nil
 
@@ -18,54 +33,97 @@ class RssFeed
 end
 
 class RssRender
-  attr_accessor :filename, :to_context
+  attr_accessor :filename, :to_context, :now, :day, :updated
+
+  attr_accessor :start, :stop
 
   def initialize filename #Assume filename has no extension
     @filename = filename
+    @now   = DateTime.now
+    @day   = @now - 1
+    # If needed, we can add the following as well
+    # @week  = @now - 7
+    # @month = @now << 1 
+
+    @updated = false
+
+    @start = "\\usemodule[rssfeed]\\starttext"
+    @stop  = "\\stoptext"
+
+  end
+
+  def start
+    File.open("#{@filename}.tex", 'a') do |file|
+      file.puts @start
+    end
+  end
+
+  def stop
+    File.open("#{@filename}.tex", 'a') do |file|
+      file.puts @stop
+    end
   end
 
   def render feed 
     rss = FeedNormalizer::FeedNormalizer.parse open(feed.url)
 
     @to_context = Proc.new{|text| to_context_from feed.type, text}
+    @updated    = false
 
-    File.open("#{@filename}.tex", 'w') do |file|
-      file.puts "\\usemodule[rssfeed]"
-      file.puts "\\setuphead[section,subsection,subsubsection][number=no]"
-      file.puts "\\starttext \\asciimode"
-
+    File.open("#{@filename}.tex", 'a') do |file|
       title       = rss.title       rescue nil
       description = @to_context.call(description) rescue nil
       link        = rss.url        rescue nil
 
-      file.puts(render_title title, description, link)
-
       rss.clean!
 
-      # TODO: Check pubdate and only add new items
-       rss.entries.each do |item| 
-         title   = item.title
-         link    = item.url
+      rss.entries.each do |item| 
+         date = DateTime.parse item.date_published rescue DateTime.now
+         date = DateTime.parse item.last_updated rescue DateTime.now if date.nil?
+         date = DateTime.now if date.nil?
 
-         content = item.content rescue item.description
-         # Sometimes content is set to nill
-         content = item.description if content == ""
+         if date > @day
+           
+           file.puts(render_title title, description, link) unless updated
+           @updated = true
 
-         content = @to_context.call(content)
+           title   = item.title
+           link    = item.url
 
-         file.puts(render_item title, link, content)
-       end
-      file.puts "\\stoptitle"
-      file.puts "\\stoptext"
+           content = item.content rescue item.description
+           # Sometimes content is set to nill
+           content = item.description if content == ""
+
+           content = @to_context.call(content)
+
+           file.puts(render_item title, link, content)
+         end
+
+      end
     end
 
-    %x[source /opt/context-minimals/setuptex && context --batchmode --noconsole #{filename}]
+    return @updated
+  end
+
+  def render_standalone feed
+    File.delete ("#{@filename}.tex") if File.exists? ("#{@filename}.tex")
+
+    start
+    render feed
+    stop
+    compile
 
   end
+
 
   def email address
     %x[mutt -a #{@filename}.pdf -- #{address} < /dev/null]
   end
+
+  def compile 
+    %x[source /opt/context-minimals/setuptex && context --batchmode --noconsole #{filename}] if @updated
+  end
+
 
   private
 
@@ -105,18 +163,33 @@ class RssRender
 
 end
 
-FEEDS = [ {:name=>"coding-horror", :link=>"http://feeds.feedburner.com/codinghorror/", :type=>"html"},
-          {:name=>"endeavor", :link=>"http://feeds.feedburner.com/theendeavour", :type=>"html"},
-          {:name=>"IEEE-TAC", :link=>"http://ieeexplore.ieee.org/rss/TOC9.XML", :type=>"markdown"},
-          {:name=>"TeX-SE", :link=>"http://tex.stackexchange.com/feeds/question/4987", :type=>"html"}, 
-          {:name=>"mansurovs", :link=>"http://feeds.feedburner.com/mansurovs", :type=>"html"},
-          {:name=>'random-determinism', :link=>"http://randomdeterminism.wordpress.com/feed/", :type=>"html"},
-        ]
+def rss2kindle title, list
+    filename = "#{title}-#{DateTime.now.to_date}"
+    File.delete ("#{filename}.tex") if File.exists? ("#{filename}.tex")
+    renderer = RssRender.new filename
 
-FEEDS.each do |feed|
-    rssfeed  = RssFeed.new feed[:link], feed[:type]
-    renderer = RssRender.new feed[:name]
-    puts "Generating feed #{feed[:name]}"
-    renderer.render rssfeed
-    #renderer.email "adityam_77@free.kindle.com" 
+    updated = false 
+
+    renderer.start
+
+    list.each do |feed|
+        rssfeed  = RssFeed.new feed[:link], feed[:type]
+        puts "Generating feed #{feed[:name]}"
+        if renderer.render rssfeed
+           puts ">> #{feed[:name]} updated."
+           updated = true 
+        end
+    end
+    renderer.stop
+
+    if updated
+      puts "== Feeds updated =="
+      renderer.compile
+      renderer.email "adityam_77@free.kindle.com" 
+    else
+      puts "== Feeds not updated =="
+    end
 end
+
+rss2kindle "Blogs", BLOGS
+rss2kindle "Papers", PAPERS
