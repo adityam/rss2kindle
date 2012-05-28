@@ -45,7 +45,7 @@ class RssRender
   def initialize filename #Assume filename has no extension
     @filename = filename
     @now   = DateTime.now
-    @day   = @now - 1
+    @day   = @now - 1.1
     # If needed, we can add the following as well
     # @week  = @now - 7
     # @month = @now << 1 
