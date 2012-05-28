@@ -160,9 +160,9 @@ class RssRender
   def render_item title, link, content
     %<
       #{render_url link, title}
-      \\starttitle[title={\\from[link]}, bookmark={#{title}}]
+      \\startchapter[title={\\from[link]}, bookmark={#{title}}, marking={#{title}}]
       #{content}
-      \\stoptitle
+      \\stopchapter
     >
   end
 
