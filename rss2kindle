@@ -1,24 +1,11 @@
 #!/usr/bin/env ruby
 # encoding: UTF-8
 
-CWD = "/home/adityam/.rss2kindle"
+CWD     = "/home/adityam/.rss2kindle"
+PANDOC  = "/home/adityam/.cabal/bin/pandoc"
+CONTEXT = "source /opt/context-minimals/setuptex && context --batchmode --noconsole"
 
 Dir.chdir CWD
-
-BLOGS = [ {:name=>"coding-horror", :link=>"http://feeds.feedburner.com/codinghorror/", :type=>"html"},
-          {:name=>"endeavor", :link=>"http://feeds.feedburner.com/theendeavour", :type=>"html"},
-          # {:name=>"TeX", :link=>"http://texample.net/feeds/community/", :type=>"html"},
-          {:name=>"mansurovs", :link=>"http://feeds.feedburner.com/mansurovs", :type=>"html"},
-          {:name=>"devdutt", :link=>"http://feeds.feedburner.com/Devdutt", :type=>"html"},
-          {:name=>'random-determinism', :link=>"http://randomdeterminism.wordpress.com/feed/", :type=>"html"},
-          {:name=>"xkcd", :link=>"http://xkcd.com/atom.xml", :type=>:html},
-          {:name=>"fastcompany", :link=>"http://feeds.feedburner.com/fastcompany/headlines", :type=>"html"},
-        ]
-
-PAPERS = [ {:name=>"IEEE-TAC", :link=>"http://ieeexplore.ieee.org/rss/TOC9.XML", :type=>"markdown"},
-           {:name=>"Arxiv-IT", :link=>"http://export.arxiv.org/rss/cs.IT", :type=>"markdown"},
-           {:name=>"Arxiv-OC", :link=>"http://export.arxiv.org/rss/math.OC", :type=>"markdown"},
-         ]
 
 # SimpleRSS generates a lot of warnings related to UTF. So, we disable warnings
 $VERBOSE = nil
@@ -27,6 +14,7 @@ require 'rubygems'
 require 'feed-normalizer'
 require 'open-uri'
 require 'htmlentities'
+require 'yaml'
 
 class RssFeed
   attr_reader :url, :type, :id
@@ -48,7 +36,7 @@ class RssRender
   def initialize filename #Assume filename has no extension
     @filename = filename
     @now   = DateTime.now
-    @day   = @now - 2
+    @day   = @now - 1
     # If needed, we can add the following as well
     # @week  = @now - 7
     # @month = @now << 1 
@@ -96,7 +84,7 @@ class RssRender
            file.puts(render_title title, description, link) unless updated
            @updated = true
 
-           title   = @@html.decode item.title
+           title   = @to_context.call(@@html.decode item.title)
            link    = item.url
 
            content = item.content rescue item.description
@@ -130,7 +118,7 @@ class RssRender
   end
 
   def compile 
-    %x[source /opt/context-minimals/setuptex && context --batchmode --noconsole #{filename}] if @updated
+    %x[#{CONTEXT} #{filename}] if @updated
   end
 
 
@@ -138,7 +126,7 @@ class RssRender
 
   def to_context_from from, text
     context = ""
-     IO.popen(["/home/adityam/.cabal/bin/pandoc", "-f", from.to_s, "-t",  "context"], mode="r+") do |file|
+     IO.popen([PANDOC, "-f", from.to_s, "-t",  "context"], mode="r+") do |file|
       file.puts text
       file.close_write
       context = file.read
@@ -163,8 +151,12 @@ class RssRender
   def render_item id, title, link, content
     %<
       #{render_url link, title}
+      %% The title can contain #, which wrecks havoc
+      \\startasciimode
       \\startchapter[title={\\from[link]}, list={#{title}}, bookmark={#{title}}, 
-                    marking={#{id} ▶ #{title}}]
+                    marking={#{title}}]
+                    [name={#{id}}]
+      \\stopasciimode
       #{content}
       \\stopchapter
     >
@@ -182,10 +174,10 @@ def rss2kindle title, list
     renderer.start
 
     list.each do |feed|
-        rssfeed  = RssFeed.new feed[:name], feed[:link], feed[:type]
-        puts "Generating feed #{feed[:name]}"
+        rssfeed  = RssFeed.new feed["name"], feed["link"], feed["type"]
+        puts "Generating feed #{feed["name"]}"
         if renderer.render rssfeed
-           puts ">> #{feed[:name]} updated."
+           puts ">> #{feed["name"]} updated."
            updated = true 
         end
     end
@@ -193,17 +185,24 @@ def rss2kindle title, list
 
     if updated
       puts "== Feeds updated. compiling TeX file. =="
-      renderer.compile
+      puts renderer.compile
       unless $?.success?
         puts ">> Error in ConTeXt run" 
         # Compile two more time to get cross-referencing right
         2.times{renderer.compile}
       end
-       renderer.email "adityam_77@free.kindle.com" 
+        renderer.email "adityam_77@free.kindle.com" 
     else
       puts "== Feeds not updated =="
     end
 end
 
-rss2kindle "Blogs", BLOGS
-rss2kindle "Papers", PAPERS
+if __FILE__ == $PROGRAM_NAME
+    title    = ARGV[0]
+    filename = ARGV[1]
+    abort("Usage: #{$PROGRAM_NAME} title yaml-file") if filename.nil?
+
+    blogs = YAML::load( File.open(filename) )
+    rss2kindle title, blogs
+end
+
