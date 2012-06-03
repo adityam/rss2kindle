@@ -19,8 +19,8 @@ to PDF formatted to be read on a Kindle.
     file  : news.tex
     age   : 1  # Only use feeds that appeared `age` days ago
     feeds :
-        hindu : http://www.thehindu.com/?service=feeder
         bbc-news : http://feeds.bbci.co.uk/news/rss.xml
+        globe-and-mail : http://www.theglobeandmail.com/?service=rss
     ---
     title : Comics
     file  : comics.tex

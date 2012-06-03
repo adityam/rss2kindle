@@ -5,11 +5,7 @@ require 'yaml'
 require 'open-uri'
 require 'logger'
 require 'fileutils'
-
-require 'rubygems'
 require 'feed-normalizer'
-require 'open-uri'
-require 'htmlentities'
 require 'pandoc-ruby'
 
 class Rss2Kindle
@@ -23,7 +19,7 @@ class Rss2Kindle
         @options[:context]   = "context"
         @options[:logfile]   = STDERR
 
-        @help_message = ""
+        @help_message = "Aborting"
 
         @option_parser = OptionParser.new do |opts|
           opts.banner = "Usage: #{$PROGRAM_NAME} [options] yamlfile"
@@ -75,8 +71,8 @@ class Rss2Kindle
 end
 
 class RssFeed
-    attr_accessor :title, :description, :url
-    attr_accessor :entries
+    attr_accessor :title, :description, :url, :entries
+
     def clean!
         @title       = PandocRuby.new(@title).to_context
         @description = PandocRuby.new(@description).to_context
@@ -85,7 +81,6 @@ class RssFeed
             entry = RssEntry.new
 
             entry.content = rss_item.content rescue rss_item.description
-            # Sometimes content is empty
             entry.content = rss_item.description if entry.content.empty?
 
             entry.title   = PandocRuby.html(rss_item.title).to_context
@@ -116,13 +111,21 @@ class FeedParser
         return nil if @url.nil?
 
         # SimpleRSS generates a lot of warnings related to UTF. So, we disable warnings
-        verbose_level = $VERBOSE
-        $VERBOSE = nil
+        verbose_level, $VERBOSE = $VERBOSE, nil
 
         rss = FeedNormalizer::FeedNormalizer.parse @url
-        return nil if rss.nil?
 
-        rss.clean!
+        if rss.nil?
+            $VERBOSE = verbose_level
+            return nil 
+        else
+            begin
+                rss.clean! 
+            rescue 
+                $VERBOSE = verbose_level
+                return nil
+            end
+        end
 
         parsed = RssFeed.new
         parsed.title        = rss.title rescue nil
@@ -132,7 +135,6 @@ class FeedParser
         date_threshold = DateTime.now - age
         parsed.entries = rss.entries.reject{ |rss_item| date(rss_item) < date_threshold }
 
-        $VERBOSE = verbose_level
         return parsed.clean!
     end
 
@@ -142,10 +144,7 @@ class FeedParser
         if date.nil? 
             date = DateTime.parse rss_item.last_updated rescue nil
         end
-        if date.nil?
-            date = DateTime.now 
-        end
-        return date
+        return date or Date.now
     end
 end
 
@@ -160,7 +159,7 @@ class FeedFormatter
         start = %<
         \\usemodule[rssfeed]
         \\starttext
-        \\starttitle[title={#{title}}]
+        \\starttitle[title={#{title} #{Date.today}}]
             \\placelist[chapter]
         \\stoptitle
         >  
@@ -181,6 +180,7 @@ class FeedFormatter
     end
 
     private
+
     def format_entry id, entry
         # The title may contain `#`, which gets translated to
         # \type{#}, but that does not work inside a title.
@@ -234,6 +234,7 @@ end
 
 
 if __FILE__ == $PROGRAM_NAME
+
     rss2kindle = Rss2Kindle.new
     context    = Compiler.new rss2kindle.options[:context], "--batchmode --noconsole"
     mailer     = Mailer.new  #TODO: Make configurable
@@ -275,7 +276,6 @@ if __FILE__ == $PROGRAM_NAME
                 logger.info("No recent feeds for category #{title}.")
                 next
             end
-
 
             File.open(file, 'w') do |handle|
                 logger.info("Writing #{title} to #{file}")
