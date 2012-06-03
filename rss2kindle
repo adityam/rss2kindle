@@ -19,7 +19,6 @@ class Rss2Kindle
         @options[:verbose]   = false
         @options[:directory] = Dir.pwd
         @options[:context]   = "context"
-        @options[:pandoc]    = "pandoc"
         @options[:logfile]   = STDERR
 
         @help_message = ""
@@ -32,15 +31,16 @@ class Rss2Kindle
           end
 
           opts.on("-d", "--directory [DIR]", String, "Set output directory") do |dir|
-              @options[:directory] = dir
+              @options[:directory] = File.expand_path dir
           end
 
           opts.on("--context [FILE]", String, "Set context binary") do |context|
               @options[:context] = context
           end
 
-          opts.on("--pandoc [FILE]", String, "Set pandoc binary") do |pandoc|
+          opts.on("--pandocdir [DIR]", String, "Path for pandoc binary") do |pandoc|
               @options[:pandoc] = pandoc
+              PandocRuby.bin_path = pandoc
           end
 
           opts.on("--logfile [FILE]", String, "Set logfile") do |logfile|
@@ -121,6 +121,9 @@ if __FILE__ == $PROGRAM_NAME
         categories = rss2kindle.parse_file filename
         logger.info { "Reading yaml file " + filename } 
 
+        pwd = Dir.pwd
+        Dir.chdir rss2kindle.options[:directory]
+
         categories.each do |category| 
             title = (category["title"] or "Rss2Kindle")   rescue "Rss2Kindle"
             file  = (category["file"]  or title + ".tex") rescue title + ".tex"
@@ -145,11 +148,11 @@ if __FILE__ == $PROGRAM_NAME
                 parsed[id] = parsed_feed unless parsed_feed.nil? or parsed_feed.empty?
             end 
 
-            pp parsed
             if parsed.empty?
                 logger.info("No recent feeds for category #{title}.")
                 next
             end
+
 
             File.open(file, 'w') do |handle|
                 logger.info("Writing #{title} to #{file}")
@@ -165,5 +168,8 @@ if __FILE__ == $PROGRAM_NAME
                 logger.error("Error in compiling #{file}")
             end
         end
+        
+        Dir.chdir pwd
+
     end
 end
