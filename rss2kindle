@@ -1,0 +1,169 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'yaml'
+require 'open-uri'
+require 'logger'
+require 'fileutils'
+
+# Seach for file in the directory containing the current file
+$: << File.expand_path(File.dirname $PROGRAM_NAME)
+require 'feed-parser'
+
+class Rss2Kindle
+    attr_reader :options, :help_message
+
+    def initialize
+        @options = {}
+
+        @options[:verbose]   = false
+        @options[:directory] = Dir.pwd
+        @options[:context]   = "context"
+        @options[:pandoc]    = "pandoc"
+        @options[:logfile]   = STDERR
+
+        @help_message = ""
+
+        @option_parser = OptionParser.new do |opts|
+          opts.banner = "Usage: #{$PROGRAM_NAME} [options] yamlfile"
+
+          opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
+            @options[:verbose] = v
+          end
+
+          opts.on("-d", "--directory [DIR]", String, "Set output directory") do |dir|
+              @options[:directory] = dir
+          end
+
+          opts.on("--context [FILE]", String, "Set context binary") do |context|
+              @options[:context] = context
+          end
+
+          opts.on("--pandoc [FILE]", String, "Set pandoc binary") do |pandoc|
+              @options[:pandoc] = pandoc
+          end
+
+          opts.on("--logfile [FILE]", String, "Set logfile") do |logfile|
+              @options[:logfile] = logfile
+          end
+        end
+        @option_parser.parse!
+        @help_message = @option_parser.to_s
+
+        abort("Missing: yamlfile\n" + @help_message) if ARGV.empty?
+
+    end
+
+    def parse_file filename
+        begin 
+            yaml_file = open(filename)
+        rescue Exception => e
+            puts "Cannot open #{filename}: #{e.message}" 
+            abort @help_message
+        end
+
+        begin 
+            feeds = YAML::load_stream(yaml_file)
+        rescue Exception => e
+            puts "Cannot parse #{filename}: #{e.message}"
+            abort @help_message
+        end
+        return feeds
+    end
+end
+
+class Compiler
+    attr_reader :compiler, :flags
+
+    def initialize compiler, flags
+        @compiler = compiler
+        @flags    = flags
+    end
+
+    def compile filename, show_status=false
+        raise "No such file - #{filename}" unless File.exists? filename
+        result = %x[#{@compiler} #{@flags} #{filename}] 
+        puts result if show_status
+        return $?.success?
+    end
+end
+
+class Mailer
+    attr_reader :mailer
+
+    # Currently this assumes mutt like options.
+    # TODO: Extend the class if and when needed.
+    def initialize mailer="mutt"
+        @mailer = mailer
+    end
+
+    def email address, message_file, attachment=nil
+        raise "No such file - #{message_file}" unless File.exists? message_file
+        if attachment.nil?
+            %x[#{@mailer} #{address} < #{message_file}]
+        else
+            raise "No such file - #{attachment}" unless File.exists? attachment
+            %x[#{@mailer} -a #{attachment} -- #{address} < #{message_file}]
+        end
+        return $?.success?
+    end
+end
+
+
+if __FILE__ == $PROGRAM_NAME
+    rss2kindle = Rss2Kindle.new
+    context    = Compiler.new rss2kindle.options[:context], "--batchmode --noconsole"
+    mailer     = Mailer.new  #TODO: Make configurable
+    logger     = Logger.new rss2kindle.options[:logfile], 'weekly'
+
+
+    ARGV.each do |filename|
+        categories = rss2kindle.parse_file filename
+        logger.info { "Reading yaml file " + filename } 
+
+        categories.each do |category| 
+            title = (category["title"] or "Rss2Kindle")   rescue "Rss2Kindle"
+            file  = (category["file"]  or title + ".tex") rescue title + ".tex"
+            age   = (category["age"]   or 1)              rescue 1
+            feeds = category["feeds"] rescue nil
+            if feeds.nil?
+                logger.warn "Category #{title} has no feeds; skipping."
+                next
+            end
+
+            begin
+                FileUtils.touch file
+            rescue Exception => e
+                logger.warn "File #{file} for category #{title} is not writable; skipping: #{e.message}"
+                next
+            end
+
+            parsed = {}
+            feeds.each_pair do |id, url|
+                logger.info("Reading feed #{id}: #{url}")
+                parsed_feed = FeedParser.new(id, url).fetch age
+                parsed[id] = parsed_feed unless parsed_feed.nil? or parsed_feed.empty?
+            end 
+
+            pp parsed
+            if parsed.empty?
+                logger.info("No recent feeds for category #{title}.")
+                next
+            end
+
+            File.open(file, 'w') do |handle|
+                logger.info("Writing #{title} to #{file}")
+                handle.puts FeedFormatter.new(parsed).format 
+            end
+
+            logger.info("Compiling #{file}")
+            if context.compile file 
+                pdfname = file.chomp(File.extname(file)) + ".pdf"
+                logger.info("Emailing #{file}")
+                mailer.email "adityam_77@free.kindle.com", "/dev/null", pdfname
+            else
+                logger.error("Error in compiling #{file}")
+            end
+        end
+    end
+end
