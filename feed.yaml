@@ -24,6 +24,7 @@ feeds:
     xkcd :      http://xkcd.com/atom.xml
     phd-comics: http://www.phdcomics.com/gradfeed_justcomics.php
     geek-and-poke: http://feeds.feedburner.com/GeekAndPoke
+    dilbert  : http://feed.dilbert.com/dilbert/daily_strip
 ---
 title: News
 file : news.tex
