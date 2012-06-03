@@ -156,13 +156,13 @@ if __FILE__ == $PROGRAM_NAME
 
             File.open(file, 'w') do |handle|
                 logger.info("Writing #{title} to #{file}")
-                handle.puts FeedFormatter.new(parsed).format 
+                handle.puts(FeedFormatter.new(parsed).format title)
             end
 
             logger.info("Compiling #{file}")
             if context.compile file 
                 pdfname = file.chomp(File.extname(file)) + ".pdf"
-                logger.info("Emailing #{pdffile}")
+                logger.info("Emailing #{pdfname}")
                 mailer.email "adityam_77@free.kindle.com", "/dev/null", pdfname
             else
                 logger.error("Error in compiling #{file}")
