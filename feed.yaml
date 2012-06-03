@@ -1,0 +1,31 @@
+title: Generic blogs
+file : /var/blog.tex
+age  : 1
+feeds:
+    coding-horror: http://feeds.feedburner.com/codinghorror/
+    endeavor     : http://feeds.feedburner.com/theendeavour
+    theil        : http://blakemasters.tumblr.com/rss
+    devdutt      : http://feeds.feedburner.com/Devdutt
+    FSP          : http://science-professor.blogspot.com/feeds/posts/default
+    Scientopia   : http://scientopia.org/blogs/feed/
+---
+title: Photo blogs
+file : photo.tex
+age  : 1
+feeds:
+    mansurovs   : http://feeds.feedburner.com/mansurovs
+---
+title: Comics 
+file : comics.tex
+age  : 1
+feeds:
+    xkcd : http://xkcd.com/atom.xml
+---
+title: News
+file : news.tex
+age  : 1
+feeds:
+    fastcompany : http://feeds.feedburner.com/fastcompany/headlines
+---
+title: TODO
+
