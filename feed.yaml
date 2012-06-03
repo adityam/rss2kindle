@@ -1,10 +1,11 @@
 title: Generic blogs
-file : /var/blog.tex
+file : blogs.tex
 age  : 1
 feeds:
     coding-horror: http://feeds.feedburner.com/codinghorror/
     endeavor     : http://feeds.feedburner.com/theendeavour
     theil        : http://blakemasters.tumblr.com/rss
+    ergodicity   : http://ergodicity.net/feed/
     devdutt      : http://feeds.feedburner.com/Devdutt
     FSP          : http://science-professor.blogspot.com/feeds/posts/default
     Scientopia   : http://scientopia.org/blogs/feed/
@@ -14,18 +15,19 @@ file : photo.tex
 age  : 1
 feeds:
     mansurovs   : http://feeds.feedburner.com/mansurovs
+    photo-focus : http://feeds2.feedburner.com/photofocus/
 ---
 title: Comics 
 file : comics.tex
 age  : 1
 feeds:
-    xkcd : http://xkcd.com/atom.xml
+    xkcd :      http://xkcd.com/atom.xml
+    phd-comics: http://www.phdcomics.com/gradfeed_justcomics.php
+    geek-and-poke: http://feeds.feedburner.com/GeekAndPoke
 ---
 title: News
 file : news.tex
 age  : 1
 feeds:
     fastcompany : http://feeds.feedburner.com/fastcompany/headlines
----
-title: TODO
 
