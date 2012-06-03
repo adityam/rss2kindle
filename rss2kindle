@@ -28,7 +28,7 @@ class Rss2Kindle
         @option_parser = OptionParser.new do |opts|
           opts.banner = "Usage: #{$PROGRAM_NAME} [options] yamlfile"
 
-          opts.on("-m", "--[no-]mail", "Email results") do |m|
+          opts.on("-m", "--mail [ADDRESS]", "Email results to ADDRESS") do |m|
             @options[:mail] = m
           end
 
@@ -287,7 +287,7 @@ if __FILE__ == $PROGRAM_NAME
                 if rss2kindle.options[:mail]
                     pdfname = file.chomp(File.extname(file)) + ".pdf"
                     logger.info("Emailing #{pdfname}")
-                    mailer.email "adityam_77@free.kindle.com", "/dev/null", pdfname
+                    mailer.email rss2kindle.options[:mail], "/dev/null", pdfname
                 end
             else
                 logger.error("Error in compiling #{file}")

@@ -30,5 +30,7 @@ title: News
 file : news.tex
 age  : 1
 feeds:
+    hindu : http://www.thehindu.com/?service=feeder
+    bbc-news : http://feeds.bbci.co.uk/news/rss.xml
     fastcompany : http://feeds.feedburner.com/fastcompany/headlines
 
