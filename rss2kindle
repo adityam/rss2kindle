@@ -162,7 +162,7 @@ if __FILE__ == $PROGRAM_NAME
             logger.info("Compiling #{file}")
             if context.compile file 
                 pdfname = file.chomp(File.extname(file)) + ".pdf"
-                logger.info("Emailing #{file}")
+                logger.info("Emailing #{pdffile}")
                 mailer.email "adityam_77@free.kindle.com", "/dev/null", pdfname
             else
                 logger.error("Error in compiling #{file}")
