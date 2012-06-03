@@ -144,7 +144,7 @@ class FeedParser
         if date.nil? 
             date = DateTime.parse rss_item.last_updated rescue nil
         end
-        return date or Date.now
+        return (date or Date.now)
     end
 end
 
@@ -205,7 +205,7 @@ class Compiler
 
     def compile filename, show_status=false
         raise "No such file - #{filename}" unless File.exists? filename
-        result = %x[#{@compiler} #{@flags} #{filename}] 
+        result = %x[#{@compiler} #{@flags} "#{filename}"] 
         puts result if show_status
         return $?.success?
     end
@@ -226,7 +226,7 @@ class Mailer
             %x[#{@mailer} #{address} < #{message_file}]
         else
             raise "No such file - #{attachment}" unless File.exists? attachment
-            %x[#{@mailer} -a #{attachment} -- #{address} < #{message_file}]
+            %x[#{@mailer} -a "#{attachment}" -- #{address} < #{message_file}]
         end
         return $?.success?
     end
