@@ -5,7 +5,6 @@ feeds:
     coding-horror: http://feeds.feedburner.com/codinghorror/
     endeavor     : http://feeds.feedburner.com/theendeavour
     theil        : http://blakemasters.tumblr.com/rss
-    ergodicity   : http://ergodicity.net/feed/
     devdutt      : http://feeds.feedburner.com/Devdutt
     FSP          : http://science-professor.blogspot.com/feeds/posts/default
     Scientopia   : http://scientopia.org/blogs/feed/
@@ -21,10 +20,10 @@ title: Comics
 file : comics.tex
 age  : 1
 feeds:
-    xkcd :      http://xkcd.com/atom.xml
-    phd-comics: http://www.phdcomics.com/gradfeed_justcomics.php
-    geek-and-poke: http://feeds.feedburner.com/GeekAndPoke
-    dilbert  : http://feed.dilbert.com/dilbert/daily_strip
+    xkcd          : http://xkcd.com/atom.xml
+    phd-comics    : http://www.phdcomics.com/gradfeed_justcomics.php
+    geek-and-poke : http://feeds.feedburner.com/GeekAndPoke
+    dilbert       : http://feed.dilbert.com/dilbert/daily_strip
 ---
 title: News
 file : news.tex
@@ -32,6 +31,15 @@ age  : 1
 feeds:
     # hindu : http://www.thehindu.com/?service=feeder
     globe-and-mail : http://www.theglobeandmail.com/?service=rss
-    bbc-news : http://feeds.bbci.co.uk/news/rss.xml
-    fastcompany : http://feeds.feedburner.com/fastcompany/headlines
-
+    bbc-news       : http://feeds.bbci.co.uk/news/rss.xml
+    fastcompany    : http://feeds.feedburner.com/fastcompany/headlines
+---
+title: Acad
+file : acad.tex
+age  : 1
+feeds:
+    info-struc : http://infostructuralist.wordpress.com/feed/
+    ergodicity : http://ergodicity.net/feed/
+    arxiv-it   : http://export.arxiv.org/rss/cs.IT
+    arxiv-oc   : http://export.arxiv.org/rss/math.OC
+    arxiv-sy   : http://export.arxiv.org/rss/cs.SY
