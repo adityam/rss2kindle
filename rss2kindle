@@ -14,7 +14,6 @@ class Rss2Kindle
     def initialize
         @options = {}
 
-        @options[:mail]      = false
         @options[:directory] = Dir.pwd
         @options[:context]   = "context"
         @options[:logfile]   = STDERR
@@ -132,8 +131,9 @@ class FeedParser
         parsed.description  = rss.description rescue nil
         parsed.url          = rss.url
 
-        date_threshold = DateTime.now - age
-        parsed.entries = rss.entries.reject{ |rss_item| date(rss_item) < date_threshold }
+		# Don't include future feeds! (IEEE Journals do that)
+		now = DateTime.now
+        parsed.entries = rss.entries.select{|rss_item| a = date(rss_item).between?(now-age, now) }
 
         return parsed.clean!
     end
@@ -144,7 +144,7 @@ class FeedParser
         if date.nil? 
             date = DateTime.parse rss_item.last_updated rescue nil
         end
-        return (date or Date.now)
+        return (date or DateTime.now)
     end
 end
 
@@ -160,7 +160,7 @@ class FeedFormatter
         \\usemodule[rssfeed]
         \\starttext
         \\starttitle[title={#{title} #{Date.today}}]
-            \\placelist[chapter]
+            \\placelist[part, chapter]
         \\stoptitle
         >  
 
@@ -170,8 +170,9 @@ class FeedFormatter
 
         formatted_entries = ""
         @feed_hash.each_pair do |id, feed|
+			formatted_entries << format_feed(id)
             feed.each do |entry|
-                formatted_entries << format_entry(id, entry)
+                formatted_entries << format_entry(entry)
             end
         end
 
@@ -181,13 +182,16 @@ class FeedFormatter
 
     private
 
-    def format_entry id, entry
-        # The title may contain `#`, which gets translated to
-        # \type{#}, but that does not work inside a title.
-        # So, we set the title in asciimode
+	def format_feed id 
+		"\\part{#{id}}"
+	end
+
+    def format_entry entry
+        # If the title contains `#`, pandoc converts it to \type{#}, which does
+		# not work in headers. So, we add asciimode
         %<
         \\startasciimode
-        \\startchapter[title={#{entry.title}}][name={#{id}}]
+        \\startchapter[title={#{entry.title}}]
         \\stopasciimode
         #{entry.content}
         \\stopchapter
@@ -214,8 +218,7 @@ end
 class Mailer
     attr_reader :mailer
 
-    # Currently this assumes mutt like options.
-    # TODO: Extend the class if and when needed.
+    # Currently this assumes mutt like options. TODO: Extend if and when needed.
     def initialize mailer="mutt"
         @mailer = mailer
     end
@@ -232,14 +235,11 @@ class Mailer
     end
 end
 
-
 if __FILE__ == $PROGRAM_NAME
-
     rss2kindle = Rss2Kindle.new
     context    = Compiler.new rss2kindle.options[:context], "--batchmode --noconsole"
     mailer     = Mailer.new  #TODO: Make configurable
     logger     = Logger.new rss2kindle.options[:logfile], 'weekly'
-
 
     ARGV.each do |filename|
         categories = rss2kindle.parse_file filename
@@ -284,7 +284,7 @@ if __FILE__ == $PROGRAM_NAME
 
             logger.info("Compiling #{file}")
             if context.compile file 
-                if rss2kindle.options[:mail]
+                unless rss2kindle.options[:mail].nil?
                     pdfname = file.chomp(File.extname(file)) + ".pdf"
                     logger.info("Emailing #{pdfname}")
                     mailer.email rss2kindle.options[:mail], "/dev/null", pdfname
