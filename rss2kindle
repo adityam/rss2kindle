@@ -12,12 +12,7 @@ class Rss2Kindle
     attr_reader :options, :help_message
 
     def initialize
-        @options = {}
-
-        @options[:directory] = Dir.pwd
-        @options[:context]   = "context"
-        @options[:logfile]   = STDERR
-
+        @options = { :directory=>Dir.pwd, :context=>"context", :logfile=>STDERR }
         @help_message = "Aborting"
 
         @option_parser = OptionParser.new do |opts|
@@ -86,6 +81,7 @@ class RssFeed
             entry.content = PandocRuby.html(entry.content).to_context
             entry
         end
+        self
     end
 end
 
@@ -133,7 +129,7 @@ class FeedParser
 
 		# Don't include future feeds! (IEEE Journals do that)
 		now = DateTime.now
-        parsed.entries = rss.entries.select{|rss_item| a = date(rss_item).between?(now-age, now) }
+        parsed.entries = rss.entries.select{|rss_item| date(rss_item).between?(now-age, now+1) }
 
         return parsed.clean!
     end
@@ -160,7 +156,7 @@ class FeedFormatter
         \\usemodule[rssfeed]
         \\starttext
         \\starttitle[title={#{title} #{Date.today}}]
-            \\placelist[part, chapter]
+            \\placelist[part, chapter][criterium=text]
         \\stoptitle
         >  
 
@@ -170,10 +166,11 @@ class FeedFormatter
 
         formatted_entries = ""
         @feed_hash.each_pair do |id, feed|
-			formatted_entries << format_feed(id)
-            feed.each do |entry|
+			formatted_entries << "\\startpart[title=#{feed.title}, marking=#{id}]"
+            feed.entries.each do |entry|
                 formatted_entries << format_entry(entry)
             end
+            formatted_entries << "\\stoppart"
         end
 
         return start + formatted_entries + stop
@@ -181,10 +178,6 @@ class FeedFormatter
     end
 
     private
-
-	def format_feed id 
-		"\\part{#{id}}"
-	end
 
     def format_entry entry
         # If the title contains `#`, pandoc converts it to \type{#}, which does
@@ -267,26 +260,30 @@ if __FILE__ == $PROGRAM_NAME
 
             parsed = {}
             feeds.each_pair do |id, url|
-                logger.info("Reading feed #{id}: #{url}")
+                logger.info "Reading feed #{id}: #{url}"
                 parsed_feed = FeedParser.new(id, url).fetch age
-                parsed[id] = parsed_feed unless parsed_feed.nil? or parsed_feed.empty?
+                if parsed_feed.entries.nil? or parsed_feed.entries.empty?
+                  logger.info "No new feeds in #{id}"
+                else
+                  parsed[id] = parsed_feed 
+                end
             end 
 
             if parsed.empty?
-                logger.info("No recent feeds for category #{title}.")
+                logger.info "No recent feeds for category #{title}."
                 next
             end
 
             File.open(file, 'w') do |handle|
-                logger.info("Writing #{title} to #{file}")
+                logger.info "Writing #{title} to #{file}"
                 handle.puts(FeedFormatter.new(parsed).format title)
             end
 
-            logger.info("Compiling #{file}")
+            logger.info "Compiling #{file}"
             if context.compile file 
                 unless rss2kindle.options[:mail].nil?
                     pdfname = file.chomp(File.extname(file)) + ".pdf"
-                    logger.info("Emailing #{pdfname}")
+                    logger.info "Emailing #{pdfname}"
                     mailer.email rss2kindle.options[:mail], "/dev/null", pdfname
                 end
             else
